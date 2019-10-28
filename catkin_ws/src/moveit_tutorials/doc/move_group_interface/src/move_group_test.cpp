@@ -45,6 +45,10 @@
 
 #include <moveit_visual_tools/moveit_visual_tools.h>
 
+#include <control_msgs/PointHeadAction.h>
+#include <control_msgs/GripperCommandAction.h>
+#include <actionlib/client/simple_action_client.h>
+
 int main(int argc, char** argv)
 {
     ros::init(argc, argv, "move_group_interface_tutorial");
@@ -181,6 +185,31 @@ int main(int argc, char** argv)
 
 
 
+actionlib::SimpleActionClient<control_msgs::PointHeadAction> ac("/head_controller/point_head",true);
+
+ROS_INFO("Waiting for action server to start.");
+ac.waitForServer();
+ROS_INFO("SEND GOAL");
+control_msgs::PointHeadGoal goal;
+goal.target.header.stamp = ros::Time::now();
+goal.target.header.frame_id = "base_link";
+goal.target.point.x = 1;
+    goal.target.point.y = 1;
+    goal.target.point.z = 0.5;
+
+    ac.sendGoal(goal);
+
+
+    actionlib::SimpleActionClient<control_msgs::GripperCommandAction> ac2("/gripper_controller/gripper_action",true);
+
+    ROS_INFO("Waiting for gripper action server to start.");
+    ac2.waitForServer();
+    ROS_INFO("SEND GOAL");
+    control_msgs::GripperCommandGoal goal2;
+    goal2.command.position = 0;
+//    goal2.command.max_effort = 0;
+
+    ac2.sendGoal(goal2);
 
     ros::shutdown();
     return 0;
