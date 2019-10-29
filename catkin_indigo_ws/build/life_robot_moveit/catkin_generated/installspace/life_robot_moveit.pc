@@ -1,8 +1,0 @@
-prefix=/home/fetch/robotics2019_project_liferrobot/catkin_indigo_ws/install
-
-Name: life_robot_moveit
-Description: Description of life_robot_moveit
-Version: 0.0.0
-Cflags: 
-Libs: -L/home/fetch/robotics2019_project_liferrobot/catkin_indigo_ws/install/lib 
-Requires: 

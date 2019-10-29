@@ -1,5 +1,7 @@
 #include <moveit/move_group_interface/move_group.h>
 #include <moveit/planning_scene_interface/planning_scene_interface.h>
+#include <moveit/robot_trajectory/robot_trajectory.h>
+#include <moveit/trajectory_processing/iterative_time_parameterization.h>
 
 #include <moveit_msgs/DisplayRobotState.h>
 #include <moveit_msgs/DisplayTrajectory.h>
@@ -11,6 +13,7 @@
 #include <control_msgs/GripperCommandAction.h>
 #include <robot_calibration_msgs/GripperLedCommandAction.h>
 #include <actionlib/client/simple_action_client.h>
+
 
 class FetchRobot
 {
@@ -113,7 +116,43 @@ public:
         return success;
     }
 
-    bool goTo
+    bool goToWaypointByCartesianPathsWithTorso()
+    {
+        std::vector<geometry_msgs::Pose> waypoints;
+        geometry_msgs::Pose target_pose = group_arm_with_torso.getCurrentPose().pose;
+        waypoints.push_back(target_pose);
+        target_pose.position.z -= 0.2;
+        waypoints.push_back(target_pose);
+//        group_arm_with_torso.setPoseTarget(target_pose);
+//        bool success = group_arm_with_torso.plan(my_plan);
+        moveit_msgs::RobotTrajectory trajectory;
+        group_arm_with_torso.setPlanningTime(10.0);
+
+        double fraction = group_arm_with_torso.computeCartesianPath(waypoints,
+                                                     0.01,  // eef_step
+                                                     0.0,   // jump_threshold
+                                                     trajectory,
+                                                     true);
+        // The trajectory needs to be modified so it will include velocities as well.
+        // First to create a RobotTrajectory object
+        robot_trajectory::RobotTrajectory rt(group_arm_with_torso.getCurrentState()->getRobotModel(), "arm_with_torso");
+        // Second get a RobotTrajectory from trajectory
+        rt.setRobotTrajectoryMsg(*group_arm_with_torso.getCurrentState(), trajectory);
+        // Thrid create a IterativeParabolicTimeParameterization object
+        trajectory_processing::IterativeParabolicTimeParameterization iptp;
+        // Fourth compute computeTimeStamps
+        bool success = iptp.computeTimeStamps(rt);
+        ROS_INFO("Computed time stamp %s",success?"SUCCEDED":"FAILED");
+        // Get RobotTrajectory_msg from RobotTrajectory
+        rt.getRobotTrajectoryMsg(trajectory);
+        // Finally plan and execute the trajectory
+        my_plan.trajectory_ = trajectory;
+        ROS_INFO("Visualizing plan 4 (cartesian path) (%.2f%% acheived)",fraction * 100.0);
+        sleep(5.0);
+        if (success && moveRealRobot){
+            group_arm_with_torso.execute(my_plan);
+        }
+    }
 
 private:
     ros::NodeHandle nh_;
@@ -135,6 +174,8 @@ int main(int argc, char **argv)
     ros::AsyncSpinner spinner(1);
     spinner.start();
     FetchRobot fetchRobot(node_handle);
+    fetchRobot.goToWaypointByCartesianPathsWithTorso();
+
 //    fetchRobot.addFixtureToScene(0.23, 0, 0.44);
 //    ros::Duration(10).sleep();
 //    fetchRobot.removeFixtureToScene();
