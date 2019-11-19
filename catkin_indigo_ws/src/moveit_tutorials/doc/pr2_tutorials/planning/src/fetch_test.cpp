@@ -23,7 +23,6 @@ public:
     actionlib::SimpleActionClient<control_msgs::PointHeadAction> head_action_client;
 
     FetchRobot(ros::NodeHandle& nodehandle) :
-    moveRealRobot(true),
     nh_(nodehandle),
     gripper_action_client("/gripper_controller/gripper_action",true),
     led_action_client("/gripper_controller/led_action",true),
@@ -31,6 +30,7 @@ public:
     group_arm("arm"),
     group_arm_with_torso("arm_with_torso")
     {
+        nh_.param("move_real_robot", moveRealRobot, false);
         ROS_INFO("Waiting for gripper action server to start.");
         gripper_action_client.waitForServer();
         ROS_INFO("Gripper action server started, sending goal.");
@@ -43,7 +43,7 @@ public:
         display_publisher = nh_.advertise<moveit_msgs::DisplayTrajectory>("/move_group/display_planned_path", 1, true);
 
         //创建运动规划的情景，等待创建完成
-//        sleep(5.0);
+        sleep(5.0);
     }
 
     void addFixtureToScene(double x, double y, double z)
@@ -154,6 +154,86 @@ public:
         }
     }
 
+    bool addOrientationConstrain()
+    {
+        moveit_msgs::OrientationConstraint ocm;
+        ocm.link_name = "gripper_link";
+        ocm.header.frame_id = "base_link";
+        ocm.orientation.z = -0.707;
+        ocm.orientation.x = 0.707;
+        ocm.absolute_x_axis_tolerance = 0.1;
+        ocm.absolute_y_axis_tolerance = 0.1;
+        ocm.absolute_z_axis_tolerance = 0.1;
+        ocm.weight = 1.0;
+
+        moveit_msgs::Constraints test_constraints;
+        test_constraints.orientation_constraints.push_back(ocm);
+        group_arm_with_torso.setPathConstraints(test_constraints);
+        group_arm.setPathConstraints(test_constraints);
+    }
+
+    void visualPlan()
+    {
+        for (int i = 0; i < 2; ++i) {
+            ROS_INFO("Visualizing plan 1 (again)");
+            moveit_msgs::DisplayTrajectory display_trajectory;
+            display_trajectory.trajectory_start = my_plan.start_state_;
+            display_trajectory.trajectory.push_back(my_plan.trajectory_);
+            display_publisher.publish(display_trajectory);
+            /* Sleep to give Rviz time to visualize the plan. */
+            sleep(3.0);
+        }
+    }
+
+    void test()
+    {
+        bool a=true;
+        nh_.param("move_real_robot", a, true);
+        if (a)
+        {
+            ROS_INFO("not works");
+        }
+        else{
+            ROS_INFO("work");
+        }
+
+    }
+
+    void screw()
+    {
+        group_arm.clearPathConstraints();
+        group_arm_with_torso.clearPathConstraints();
+        std::vector<double> group_variable_values;
+        group_arm.getCurrentState()->copyJointGroupPositions(group_arm.getCurrentState()->getRobotModel()->getJointModelGroup(group_arm.getName()), group_variable_values);
+        for (int i = 0; i < 900; ++i) {
+            group_variable_values[7] += 0.1;
+            group_arm.setJointValueTarget(group_variable_values);
+            bool success = group_arm.plan(my_plan);
+            if (success && moveRealRobot)
+            {
+                group_arm.move();
+            }
+        }
+
+    }
+    void screwWithTorso()
+    {
+        group_arm.clearPathConstraints();
+        group_arm_with_torso.clearPathConstraints();
+        std::vector<double> group_variable_values;
+        group_arm_with_torso.getCurrentState()->copyJointGroupPositions(group_arm_with_torso.getCurrentState()->getRobotModel()->getJointModelGroup(group_arm_with_torso.getName()), group_variable_values);
+        for (int i = 0; i < 900; ++i) {
+            group_variable_values[7] += 0.1;
+            group_arm_with_torso.setJointValueTarget(group_variable_values);
+            bool success = group_arm_with_torso.plan(my_plan);
+            if (success && moveRealRobot)
+            {
+                group_arm_with_torso.move();
+            }
+        }
+
+    }
+
 private:
     ros::NodeHandle nh_;
 
@@ -170,21 +250,56 @@ private:
 int main(int argc, char **argv)
 {
     ros::init(argc, argv, "move_group_interface_tutorial");
-    ros::NodeHandle node_handle;
+    ros::NodeHandle node_handle("~");
     ros::AsyncSpinner spinner(1);
     spinner.start();
     FetchRobot fetchRobot(node_handle);
-    fetchRobot.goToWaypointByCartesianPathsWithTorso();
+    ROS_INFO("Open Gripper");
+    control_msgs::GripperCommandGoal grasp_pos;
+    grasp_pos.command.position = 0.1;
+    grasp_pos.command.max_effort = 0.0;
+    fetchRobot.gripper_action_client.sendGoal(grasp_pos);
+//    ros::Duration(3).sleep();
+    //fetchRobot.screwWithTorso();
 
-//    fetchRobot.addFixtureToScene(0.23, 0, 0.44);
-//    ros::Duration(10).sleep();
-//    fetchRobot.removeFixtureToScene();
+
+//    fetchRobot.test();
+
+
+    ROS_INFO("Add fixture to scene");
+    fetchRobot.addFixtureToScene(0.23, 0, 0.44);
+    ros::Duration(10).sleep();
+    ROS_INFO("Go to top of the tube");
+    fetchRobot.goToPoseGoalWithTorso(0.707, 0,-0.707, 0, 0.23, -0.057, 0.8);
+
+//    fetchRobot.visualPlan();
+    ros::Duration(3).sleep();
+    ROS_INFO("Remove fixture to scene");
+    fetchRobot.removeFixtureToScene();
+    ROS_INFO("ADD CONSTRAIN:");
+    fetchRobot.addOrientationConstrain();
+
+    ROS_INFO("Down:");
+    fetchRobot.goToPoseGoalWithoutTorso(0.707, 0,-0.707, 0, 0.23, -0.057, 0.67);
+
+//    fetchRobot.goToPoseGoalWithoutTorso(0.707, 0,-0.707, 0, 0.23, -0.057, 0.87);
+    //fetchRobot.goToWaypointByCartesianPathsWithTorso();
 
 // Grasp
-//    control_msgs::GripperCommandGoal grasp_pos;
-//    grasp_pos.command.position = 0.03;
-//    grasp_pos.command.max_effort = 0.0;
-//    fetchRobot.gripper_action_client.sendGoal(grasp_pos);
+    ROS_INFO("Close gripper:");
+    grasp_pos.command.position = 0.03;
+    grasp_pos.command.max_effort = 0.0;
+    fetchRobot.gripper_action_client.sendGoal(grasp_pos);
+
+
+    ros::Duration(3).sleep();
+    ROS_INFO("Screw:");
+    fetchRobot.screw();
+//    fetchRobot.screwWithTorso();
+    ROS_INFO("Up:");
+    fetchRobot.goToPoseGoalWithTorso(0.707, 0,-0.707, 0, 0.23, -0.057, 0.8);
+    ros::Duration(3).sleep();
+
 
 // Move head
 //    control_msgs::PointHeadGoal headGoal;
@@ -195,6 +310,11 @@ int main(int argc, char **argv)
 //    headGoal.target.point.z = 0.5;
 //    fetchRobot.head_action_client.sendGoal(headGoal);
 
+
+    grasp_pos.command.position = 0.1;
+    grasp_pos.command.max_effort = 0.0;
+    fetchRobot.gripper_action_client.sendGoal(grasp_pos);
+    ros::Duration(3).sleep();
 
 
 

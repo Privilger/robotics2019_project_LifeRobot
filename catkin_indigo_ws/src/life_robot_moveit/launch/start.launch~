@@ -1,0 +1,7 @@
+<launch>
+ 
+  <node pkg="moveit_tutorials" type="fetch_test" name="fetch_test" output="screen" respawn="false">
+<param name="move_real_robot" type="bool" value="true" />
+</node>
+
+</launch>
