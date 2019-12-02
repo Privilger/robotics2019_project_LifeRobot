@@ -116,12 +116,12 @@ public:
         return success;
     }
 
-    bool goToWaypointByCartesianPathsWithTorso()
+    bool goToWaypointByCartesianPathsWithTorso(double distance)
     {
         std::vector<geometry_msgs::Pose> waypoints;
         geometry_msgs::Pose target_pose = group_arm_with_torso.getCurrentPose().pose;
         waypoints.push_back(target_pose);
-        target_pose.position.z -= 0.2;
+        target_pose.position.z += distance;
         waypoints.push_back(target_pose);
 //        group_arm_with_torso.setPoseTarget(target_pose);
 //        bool success = group_arm_with_torso.plan(my_plan);
@@ -202,7 +202,7 @@ public:
     void screw()
     {
         group_arm.clearPathConstraints();
-        group_arm_with_torso.clearPathConstraints();
+//        group_arm_with_torso.clearPathConstraints();
         std::vector<double> group_variable_values;
         group_arm.getCurrentState()->copyJointGroupPositions(group_arm.getCurrentState()->getRobotModel()->getJointModelGroup(group_arm.getName()), group_variable_values);
         for (int i = 0; i < 900; ++i) {
@@ -218,8 +218,8 @@ public:
     }
     void screwWithTorso()
     {
-        group_arm.clearPathConstraints();
-        group_arm_with_torso.clearPathConstraints();
+//        group_arm.clearPathConstraints();
+//        group_arm_with_torso.clearPathConstraints();
         std::vector<double> group_variable_values;
         group_arm_with_torso.getCurrentState()->copyJointGroupPositions(group_arm_with_torso.getCurrentState()->getRobotModel()->getJointModelGroup(group_arm_with_torso.getName()), group_variable_values);
         for (int i = 0; i < 900; ++i) {
@@ -265,7 +265,6 @@ int main(int argc, char **argv)
 
 //    fetchRobot.test();
 
-
     ROS_INFO("Add fixture to scene");
     fetchRobot.addFixtureToScene(0.23, 0, 0.44);
     ros::Duration(10).sleep();
@@ -280,10 +279,8 @@ int main(int argc, char **argv)
     fetchRobot.addOrientationConstrain();
 
     ROS_INFO("Down:");
-    fetchRobot.goToPoseGoalWithoutTorso(0.707, 0,-0.707, 0, 0.23, -0.057, 0.67);
-
 //    fetchRobot.goToPoseGoalWithoutTorso(0.707, 0,-0.707, 0, 0.23, -0.057, 0.87);
-    //fetchRobot.goToWaypointByCartesianPathsWithTorso();
+    fetchRobot.goToWaypointByCartesianPathsWithTorso(-0.15);
 
 // Grasp
     ROS_INFO("Close gripper:");
@@ -293,11 +290,12 @@ int main(int argc, char **argv)
 
 
     ros::Duration(3).sleep();
-    ROS_INFO("Screw:");
-    fetchRobot.screw();
+//    ROS_INFO("Screw:");
+//    fetchRobot.screw();
 //    fetchRobot.screwWithTorso();
     ROS_INFO("Up:");
-    fetchRobot.goToPoseGoalWithTorso(0.707, 0,-0.707, 0, 0.23, -0.057, 0.8);
+//    fetchRobot.goToPoseGoalWithTorso(0.707, 0,-0.707, 0, 0.23, -0.057, 0.9);
+    fetchRobot.goToWaypointByCartesianPathsWithTorso(0.15);
     ros::Duration(3).sleep();
 
 
@@ -311,9 +309,9 @@ int main(int argc, char **argv)
 //    fetchRobot.head_action_client.sendGoal(headGoal);
 
 
-    grasp_pos.command.position = 0.1;
-    grasp_pos.command.max_effort = 0.0;
-    fetchRobot.gripper_action_client.sendGoal(grasp_pos);
+//    grasp_pos.command.position = 0.1;
+//    grasp_pos.command.max_effort = 0.0;
+//    fetchRobot.gripper_action_client.sendGoal(grasp_pos);
     ros::Duration(3).sleep();
 
 
