@@ -279,7 +279,7 @@ int main(int argc, char **argv)
     fetchRobot.addOrientationConstrain();
 
     ROS_INFO("Down:");
-//    fetchRobot.goToPoseGoalWithoutTorso(0.707, 0,-0.707, 0, 0.23, -0.057, 0.87);
+//    fetchRobot.goToPoseGoalWithoutTorso(0.707, 0,-0.707, 0, 0.23, -0.057, 0.87);z
     fetchRobot.goToWaypointByCartesianPathsWithTorso(-0.15);
 
 // Grasp
