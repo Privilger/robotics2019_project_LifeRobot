@@ -25,12 +25,12 @@ public:
     actionlib::SimpleActionClient<control_msgs::PointHeadAction> head_action_client;
 
     FetchRobot(ros::NodeHandle& nodehandle) :
-    nh_(nodehandle),
-    gripper_action_client("/gripper_controller/gripper_action",true),
-    led_action_client("/gripper_controller/led_action",true),
-    head_action_client("/head_controller/point_head",true),
-    group_arm("arm"),
-    group_arm_with_torso("arm_with_torso")
+            nh_(nodehandle),
+            gripper_action_client("/gripper_controller/gripper_action",true),
+            led_action_client("/gripper_controller/led_action",true),
+            head_action_client("/head_controller/point_head",true),
+            group_arm("arm"),
+            group_arm_with_torso("arm_with_torso")
     {
         nh_.param("move_real_robot", moveRealRobot, false);
         ROS_INFO("Waiting for gripper action server to start.");
@@ -73,11 +73,12 @@ public:
         current_scene.addCollisionObjects(collision_objects);
     }
     void addTableToScene()
-    // x=0.23, y=0, z=0.44
     {
-        moveit_msgs::CollisionObject fixture;
-        fixture.header.frame_id = "tag_1";
-        fixture.id = "table";
+        moveit_msgs::CollisionObject table, screen;
+        table.header.frame_id = "tag_1";
+        table.id = "table";
+        screen.header.frame_id = "tag_1";
+        screen.id = "screen";
         shape_msgs::SolidPrimitive primitive;
         primitive.type = primitive.BOX;
         primitive.dimensions.resize(3);
@@ -89,12 +90,25 @@ public:
         pose.position.x =  -0.15;
         pose.position.y =  0.38;
         pose.position.z =  -0.02;
-        fixture.primitives.push_back(primitive);
-        fixture.primitive_poses.push_back(pose);
-        fixture.operation = fixture.ADD;
+        table.primitives.push_back(primitive);
+        table.primitive_poses.push_back(pose);
+        table.operation = table.ADD;
+
+        primitive.dimensions[0] = 0.5; // width
+        primitive.dimensions[1] = 0.5; // long
+        primitive.dimensions[2] = 0.5; // height
+        pose.orientation.w = 1.0;
+        pose.position.x =  -0.35;
+        pose.position.y =  -0.3;
+        pose.position.z =  0.25;
+        screen.primitives.push_back(primitive);
+        screen.primitive_poses.push_back(pose);
+        screen.operation = screen.ADD;
         std::vector<moveit_msgs::CollisionObject> collision_objects;
-        collision_objects.push_back(fixture);
+        collision_objects.push_back(table);
+        collision_objects.push_back(screen);
         current_scene.addCollisionObjects(collision_objects);
+
     }
     void removeFixtureToScene()
     {
@@ -155,10 +169,10 @@ public:
         group_arm_with_torso.setPlanningTime(10.0);
 
         double fraction = group_arm_with_torso.computeCartesianPath(waypoints,
-                                                     0.01,  // eef_step
-                                                     0.0,   // jump_threshold
-                                                     trajectory,
-                                                     true);
+                                                                    0.01,  // eef_step
+                                                                    0.0,   // jump_threshold
+                                                                    trajectory,
+                                                                    true);
         // The trajectory needs to be modified so it will include velocities as well.
         // First to create a RobotTrajectory object
         robot_trajectory::RobotTrajectory rt(group_arm_with_torso.getCurrentState()->getRobotModel(), "arm_with_torso");
@@ -224,22 +238,6 @@ public:
         }
     }
 
-    tf::StampedTransform getQRcodePose() {
-        tf::TransformListener listener;
-        while (nh_.ok()) {
-            tf::StampedTransform transform;
-            try {
-                listener.lookupTransform("/tag_1", "/shoulder_pan_link",
-                                         ros::Time(0), transform);
-                return transform;
-            }
-            catch (tf::TransformException ex) {
-                ROS_ERROR("%s", ex.what());
-                ros::Duration(1.0).sleep();
-            }
-        }
-    }
-
     void screw()
     {
         group_arm.clearPathConstraints();
@@ -270,6 +268,22 @@ public:
             if (success && moveRealRobot)
             {
                 group_arm_with_torso.move();
+            }
+        }
+    }
+
+    tf::StampedTransform getQRcodePose() {
+        tf::TransformListener listener;
+        while (nh_.ok()) {
+            tf::StampedTransform transform;
+            try {
+                listener.lookupTransform("/tag_1", "/odom",
+                                         ros::Time(0), transform);
+                return transform;
+            }
+            catch (tf::TransformException ex) {
+                ROS_ERROR("%s", ex.what());
+                ros::Duration(1.0).sleep();
             }
         }
     }
@@ -311,8 +325,13 @@ int main(int argc, char **argv)
     headGoal.target.point.z = 0.5;
     fetchRobot.head_action_client.sendGoal(headGoal);
 
-
+    ROS_INFO("Add table to scene");
     fetchRobot.addTableToScene();
+    ROS_INFO("Add fixture to scene");
+    fetchRobot.addFixtureToScene(0.23, 0, 0.44);
+
+//    tf::StampedTransform QrcodePose = fetchRobot.getQRcodePose();
+//    QrcodePose.getOrigin().y();
 
 //    ros::Duration(3).sleep();
     //fetchRobot.screwWithTorso();
@@ -322,8 +341,7 @@ int main(int argc, char **argv)
 
 /*
 
-    ROS_INFO("Add fixture to scene");
-    fetchRobot.addFixtureToScene(0.23, 0, 0.44);
+
     ros::Duration(10).sleep();
 
 
@@ -377,5 +395,5 @@ int main(int argc, char **argv)
 */
 
     ros::shutdown();
-  return 0;
+    return 0;
 }
