@@ -14,6 +14,8 @@
 #include <robot_calibration_msgs/GripperLedCommandAction.h>
 #include <actionlib/client/simple_action_client.h>
 
+#include <tf/transform_listener.h>
+
 
 class FetchRobot
 {
@@ -63,6 +65,30 @@ public:
         pose.position.x =  x;
         pose.position.y =  y;
         pose.position.z =  z;
+        fixture.primitives.push_back(primitive);
+        fixture.primitive_poses.push_back(pose);
+        fixture.operation = fixture.ADD;
+        std::vector<moveit_msgs::CollisionObject> collision_objects;
+        collision_objects.push_back(fixture);
+        current_scene.addCollisionObjects(collision_objects);
+    }
+    void addTableToScene()
+    // x=0.23, y=0, z=0.44
+    {
+        moveit_msgs::CollisionObject fixture;
+        fixture.header.frame_id = "tag_1";
+        fixture.id = "table";
+        shape_msgs::SolidPrimitive primitive;
+        primitive.type = primitive.BOX;
+        primitive.dimensions.resize(3);
+        primitive.dimensions[0] = 0.5; // width
+        primitive.dimensions[1] = 1.5; // long
+        primitive.dimensions[2] = 0.04; // height
+        geometry_msgs::Pose pose;
+        pose.orientation.w = 1.0;
+        pose.position.x =  -0.15;
+        pose.position.y =  0.38;
+        pose.position.z =  -0.02;
         fixture.primitives.push_back(primitive);
         fixture.primitive_poses.push_back(pose);
         fixture.operation = fixture.ADD;
@@ -196,7 +222,22 @@ public:
         else{
             ROS_INFO("work");
         }
+    }
 
+    tf::StampedTransform getQRcodePose() {
+        tf::TransformListener listener;
+        while (nh_.ok()) {
+            tf::StampedTransform transform;
+            try {
+                listener.lookupTransform("/tag_1", "/shoulder_pan_link",
+                                         ros::Time(0), transform);
+                return transform;
+            }
+            catch (tf::TransformException ex) {
+                ROS_ERROR("%s", ex.what());
+                ros::Duration(1.0).sleep();
+            }
+        }
     }
 
     void screw()
@@ -231,8 +272,9 @@ public:
                 group_arm_with_torso.move();
             }
         }
-
     }
+
+
 
 private:
     ros::NodeHandle nh_;
@@ -259,15 +301,32 @@ int main(int argc, char **argv)
     grasp_pos.command.position = 0.1;
     grasp_pos.command.max_effort = 0.0;
     fetchRobot.gripper_action_client.sendGoal(grasp_pos);
+
+    // Move head
+    control_msgs::PointHeadGoal headGoal;
+    headGoal.target.header.stamp = ros::Time::now();
+    headGoal.target.header.frame_id = "base_link";
+    headGoal.target.point.x = 0.5;
+    headGoal.target.point.y = 0;
+    headGoal.target.point.z = 0.5;
+    fetchRobot.head_action_client.sendGoal(headGoal);
+
+
+    fetchRobot.addTableToScene();
+
 //    ros::Duration(3).sleep();
     //fetchRobot.screwWithTorso();
 
 
 //    fetchRobot.test();
 
+/*
+
     ROS_INFO("Add fixture to scene");
     fetchRobot.addFixtureToScene(0.23, 0, 0.44);
     ros::Duration(10).sleep();
+
+
     ROS_INFO("Go to top of the tube");
     fetchRobot.goToPoseGoalWithTorso(0.707, 0,-0.707, 0, 0.23, -0.057, 0.8);
 
@@ -315,7 +374,7 @@ int main(int argc, char **argv)
     ros::Duration(3).sleep();
 
 
-
+*/
 
     ros::shutdown();
   return 0;
