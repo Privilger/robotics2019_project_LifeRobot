@@ -74,11 +74,13 @@ public:
     }
     void addTableToScene()
     {
-        moveit_msgs::CollisionObject table, screen;
+        moveit_msgs::CollisionObject table, screen, wire;
         table.header.frame_id = "tag_1";
         table.id = "table";
         screen.header.frame_id = "tag_1";
         screen.id = "screen";
+        wire.header.frame_id = "base_link";
+        wire.id = "wire";
         shape_msgs::SolidPrimitive primitive;
         primitive.type = primitive.BOX;
         primitive.dimensions.resize(3);
@@ -101,6 +103,14 @@ public:
         pose.position.x =  -0.35;
         pose.position.y =  -0.3;
         pose.position.z =  0.25;
+
+//        primitive.dimensions[0] = 0.5; // width
+//        primitive.dimensions[1] = 1.5; // long
+//        primitive.dimensions[2] = 0.04; // height
+//        pose.orientation.w = 1.0;
+//        pose.position.x =  -0.35;
+//        pose.position.y =  -0.3;
+//        pose.position.z =  0.25;
         screen.primitives.push_back(primitive);
         screen.primitive_poses.push_back(pose);
         screen.operation = screen.ADD;
@@ -276,14 +286,19 @@ public:
         tf::TransformListener listener;
         while (nh_.ok()) {
             tf::StampedTransform transform;
+            transform.setOrigin(tf::Vector3(100,1,1));
             try {
-                listener.lookupTransform("/tag_1", "/odom",
+                listener.lookupTransform("base_link", "tag_1",
                                          ros::Time(0), transform);
-                return transform;
+
             }
             catch (tf::TransformException ex) {
                 ROS_ERROR("%s", ex.what());
                 ros::Duration(1.0).sleep();
+            }
+            if (transform.getOrigin().x()!=100)
+            {
+                return transform;
             }
         }
     }
@@ -330,16 +345,35 @@ int main(int argc, char **argv)
     ROS_INFO("Add fixture to scene");
     fetchRobot.addFixtureToScene(0.23, 0, 0.44);
 
-//    tf::StampedTransform QrcodePose = fetchRobot.getQRcodePose();
-//    QrcodePose.getOrigin().y();
 
-//    ros::Duration(3).sleep();
-    //fetchRobot.screwWithTorso();
+    ros::Duration(3).sleep();
+    // grip tube from table
+    tf::StampedTransform QrcodePose = fetchRobot.getQRcodePose();
+    //Translation: [0.287, -0.143, 0.043]
+    ROS_INFO("Go to top of the tube");
+    ROS_INFO_STREAM("x:"<<QrcodePose.getOrigin().x()<<" y:"<<QrcodePose.getOrigin().y()<<" z:"<<QrcodePose.getOrigin().z());
+
+    // z: 0.166 is the tf from wrist_roll_link to gripper_link
+    bool test = fetchRobot.goToPoseGoalWithTorso(0.707, 0,-0.707, 0, QrcodePose.getOrigin().x()-0.050, QrcodePose.getOrigin().y()+0.132, QrcodePose.getOrigin().z()+0.166+0.302);
+    ROS_INFO_STREAM("test:"<<test);
+//    fetchRobot.visualPlan();
+    ros::Duration(3).sleep();
+
+    ROS_INFO("Down:");
+//    fetchRobot.goToPoseGoalWithoutTorso(0.707, 0,-0.707, 0, 0.23, -0.057, 0.87);
+    fetchRobot.goToWaypointByCartesianPathsWithTorso(-0.18);
+
+    grasp_pos.command.position = 0.03;
+    grasp_pos.command.max_effort = 0.0;
+    fetchRobot.gripper_action_client.sendGoal(grasp_pos);
+
+    fetchRobot.goToWaypointByCartesianPathsWithTorso(0.18);
 
 
-//    fetchRobot.test();
+//fetchRobot.screwWithTorso();
 
 /*
+    fetchRobot.test();
 
 
     ros::Duration(10).sleep();
@@ -356,14 +390,14 @@ int main(int argc, char **argv)
     fetchRobot.addOrientationConstrain();
 
     ROS_INFO("Down:");
-//    fetchRobot.goToPoseGoalWithoutTorso(0.707, 0,-0.707, 0, 0.23, -0.057, 0.87);z
+//    fetchRobot.goToPoseGoalWithoutTorso(0.707, 0,-0.707, 0, 0.23, -0.057, 0.87);
     fetchRobot.goToWaypointByCartesianPathsWithTorso(-0.15);
 
 // Grasp
-    ROS_INFO("Close gripper:");
-    grasp_pos.command.position = 0.03;
-    grasp_pos.command.max_effort = 0.0;
-    fetchRobot.gripper_action_client.sendGoal(grasp_pos);
+//    ROS_INFO("Close gripper:");
+//    grasp_pos.command.position = 0.03;
+//    grasp_pos.command.max_effort = 0.0;
+//    fetchRobot.gripper_action_client.sendGoal(grasp_pos);
 
 
     ros::Duration(3).sleep();
@@ -391,8 +425,8 @@ int main(int argc, char **argv)
 //    fetchRobot.gripper_action_client.sendGoal(grasp_pos);
     ros::Duration(3).sleep();
 
-
 */
+
 
     ros::shutdown();
     return 0;
