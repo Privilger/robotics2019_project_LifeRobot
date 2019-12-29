@@ -17,6 +17,8 @@
 #include <tf/transform_listener.h>
 
 
+#define PI 3.14159265
+
 class FetchRobot
 {
 public:
@@ -282,19 +284,37 @@ public:
         }
     }
 
-    tf::StampedTransform getQRcodePose() {
+    tf::StampedTransform findAndGetQRcodePose() {
         tf::TransformListener listener;
+        control_msgs::PointHeadGoal headGoal;
+        headGoal.target.header.stamp = ros::Time::now();
+        headGoal.target.header.frame_id = "base_link";
+        headGoal.target.point.x = 1;
+        float t=0;
+        headGoal.target.point.z = 0.5;
+        int count=0;
+
         while (nh_.ok()) {
             tf::StampedTransform transform;
             transform.setOrigin(tf::Vector3(100,1,1));
             try {
+                count++;
                 listener.lookupTransform("base_link", "tag_1",
                                          ros::Time(0), transform);
-
             }
             catch (tf::TransformException ex) {
                 ROS_ERROR("%s", ex.what());
-                ros::Duration(1.0).sleep();
+                std::string exString(ex.what());
+//                ROS_ERROR_STREAM("test:" << exString.find("source_frame"));
+                if(exString.find("source_frame")==43){
+                    t += 10;
+                    headGoal.target.point.y = 2 * cos(t * PI / 180.0);
+                    head_action_client.sendGoal(headGoal);
+                    head_action_client.waitForResult(ros::Duration(3.0));
+                    if (head_action_client.getState() == actionlib::SimpleClientGoalState::SUCCEEDED)
+                        printf("Yay! The head is reached now");
+                }
+                ros::Duration(2.0).sleep();
             }
             if (transform.getOrigin().x()!=100)
             {
@@ -331,24 +351,13 @@ int main(int argc, char **argv)
     grasp_pos.command.max_effort = 0.0;
     fetchRobot.gripper_action_client.sendGoal(grasp_pos);
 
-    // Move head
-    control_msgs::PointHeadGoal headGoal;
-    headGoal.target.header.stamp = ros::Time::now();
-    headGoal.target.header.frame_id = "base_link";
-    headGoal.target.point.x = 0.5;
-    headGoal.target.point.y = 0;
-    headGoal.target.point.z = 0.5;
-    fetchRobot.head_action_client.sendGoal(headGoal);
+    tf::StampedTransform QrcodePose = fetchRobot.findAndGetQRcodePose();
 
+//    ROS_INFO("Add fixture to scene");
+//    fetchRobot.addFixtureToScene(0.23, 0, 0.44);
     ROS_INFO("Add table to scene");
     fetchRobot.addTableToScene();
-    ROS_INFO("Add fixture to scene");
-    fetchRobot.addFixtureToScene(0.23, 0, 0.44);
 
-
-    ros::Duration(3).sleep();
-    // grip tube from table
-    tf::StampedTransform QrcodePose = fetchRobot.getQRcodePose();
     //Translation: [0.287, -0.143, 0.043]
     ROS_INFO("Go to top of the tube");
     ROS_INFO_STREAM("x:"<<QrcodePose.getOrigin().x()<<" y:"<<QrcodePose.getOrigin().y()<<" z:"<<QrcodePose.getOrigin().z());
@@ -366,11 +375,16 @@ int main(int argc, char **argv)
     grasp_pos.command.position = 0.03;
     grasp_pos.command.max_effort = 0.0;
     fetchRobot.gripper_action_client.sendGoal(grasp_pos);
-
+//    fetchRobot.screwWithTorso();
     fetchRobot.goToWaypointByCartesianPathsWithTorso(0.18);
 
 
-//fetchRobot.screwWithTorso();
+    ROS_INFO("Go to top of the tube");
+    fetchRobot.goToPoseGoalWithTorso(0.707, 0,-0.707, 0, 0.23, -0.057, 0.8);
+    fetchRobot.visualPlan();
+
+    ROS_INFO("Down:");
+    fetchRobot.goToWaypointByCartesianPathsWithTorso(-0.20);
 
 /*
     fetchRobot.test();
