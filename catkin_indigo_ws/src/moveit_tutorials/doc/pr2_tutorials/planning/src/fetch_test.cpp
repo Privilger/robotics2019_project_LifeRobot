@@ -267,14 +267,14 @@ public:
         }
 
     }
-    void screwWithTorso()
+    void screwWithTorso(int direction)
     {
 //        group_arm.clearPathConstraints();
 //        group_arm_with_torso.clearPathConstraints();
         std::vector<double> group_variable_values;
         group_arm_with_torso.getCurrentState()->copyJointGroupPositions(group_arm_with_torso.getCurrentState()->getRobotModel()->getJointModelGroup(group_arm_with_torso.getName()), group_variable_values);
-        for (int i = 0; i < 900; ++i) {
-            group_variable_values[7] += 0.1;
+        for (int i = 0; i < 20; ++i) {
+            group_variable_values[7] -= direction* 0.1;
             group_arm_with_torso.setJointValueTarget(group_variable_values);
             bool success = group_arm_with_torso.plan(my_plan);
             if (success && moveRealRobot)
@@ -363,28 +363,38 @@ int main(int argc, char **argv)
     ROS_INFO_STREAM("x:"<<QrcodePose.getOrigin().x()<<" y:"<<QrcodePose.getOrigin().y()<<" z:"<<QrcodePose.getOrigin().z());
 
     // z: 0.166 is the tf from wrist_roll_link to gripper_link
-    bool test = fetchRobot.goToPoseGoalWithTorso(0.707, 0,-0.707, 0, QrcodePose.getOrigin().x()-0.050, QrcodePose.getOrigin().y()+0.132, QrcodePose.getOrigin().z()+0.166+0.302);
+    bool test = fetchRobot.goToPoseGoalWithTorso(0.707, 0,-0.707, 0, QrcodePose.getOrigin().x()-0.060, QrcodePose.getOrigin().y()+0.142, QrcodePose.getOrigin().z()+0.166+0.302);
     ROS_INFO_STREAM("test:"<<test);
 //    fetchRobot.visualPlan();
     ros::Duration(3).sleep();
 
     ROS_INFO("Down:");
 //    fetchRobot.goToPoseGoalWithoutTorso(0.707, 0,-0.707, 0, 0.23, -0.057, 0.87);
-    fetchRobot.goToWaypointByCartesianPathsWithTorso(-0.18);
+    fetchRobot.goToWaypointByCartesianPathsWithTorso(-0.16);
 
     grasp_pos.command.position = 0.03;
     grasp_pos.command.max_effort = 0.0;
     fetchRobot.gripper_action_client.sendGoal(grasp_pos);
-//    fetchRobot.screwWithTorso();
-    fetchRobot.goToWaypointByCartesianPathsWithTorso(0.18);
+    fetchRobot.screwWithTorso(1);
+    fetchRobot.goToWaypointByCartesianPathsWithTorso(0.16);
+
+    ros::Duration(3).sleep();
+
+    test = fetchRobot.goToPoseGoalWithTorso(0.707, 0,-0.707, 0, QrcodePose.getOrigin().x()+0.100, QrcodePose.getOrigin().y()+0.182, QrcodePose.getOrigin().z()+0.166+0.302);
+    grasp_pos.command.position = 0.1;
+    grasp_pos.command.max_effort = 0.0;
+    fetchRobot.gripper_action_client.sendGoal(grasp_pos);
 
 
-    ROS_INFO("Go to top of the tube");
+/*    ROS_INFO("Go to top of the tube");
     fetchRobot.goToPoseGoalWithTorso(0.707, 0,-0.707, 0, 0.23, -0.057, 0.8);
     fetchRobot.visualPlan();
 
     ROS_INFO("Down:");
-    fetchRobot.goToWaypointByCartesianPathsWithTorso(-0.20);
+    fetchRobot.goToWaypointByCartesianPathsWithTorso(-0.15);
+
+*/
+
 
 /*
     fetchRobot.test();
