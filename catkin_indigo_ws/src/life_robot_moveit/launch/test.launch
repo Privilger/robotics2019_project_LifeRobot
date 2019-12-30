@@ -1,0 +1,7 @@
+<launch>
+<arg name="move_real_robot" default="false"/>
+  <node pkg="moveit_tutorials" type="fetch_func_test" name="fetch_func_test" output="screen" respawn="false">
+<param name="move_real_robot" type="bool" value="$(arg move_real_robot)" />
+</node>
+
+</launch>
