@@ -289,8 +289,9 @@ public:
         control_msgs::PointHeadGoal headGoal;
         headGoal.target.header.stamp = ros::Time::now();
         headGoal.target.header.frame_id = "base_link";
-        headGoal.target.point.x = 1;
-        float t=0;
+       // headGoal.min_duration = 60;
+        headGoal.max_velocity = 0.2;
+        int t=0;
         headGoal.target.point.z = 0.5;
         int count=0;
 
@@ -307,8 +308,10 @@ public:
                 std::string exString(ex.what());
 //                ROS_ERROR_STREAM("test:" << exString.find("source_frame"));
                 if(exString.find("source_frame")==43){
-                    t += 10;
-                    headGoal.target.point.y = 2 * cos(t * PI / 180.0);
+                    t += 30;
+                    t %= 180;
+                    headGoal.target.point.x = 1 * sin(t * PI / 180.0);
+                    headGoal.target.point.y = 1 * cos(t * PI / 180.0);
                     head_action_client.sendGoal(headGoal);
                     head_action_client.waitForResult(ros::Duration(3.0));
                     if (head_action_client.getState() == actionlib::SimpleClientGoalState::SUCCEEDED)
@@ -353,6 +356,9 @@ int main(int argc, char **argv)
 
     tf::StampedTransform QrcodePose = fetchRobot.findAndGetQRcodePose();
 
+
+/*
+
 //    ROS_INFO("Add fixture to scene");
 //    fetchRobot.addFixtureToScene(0.23, 0, 0.44);
     ROS_INFO("Add table to scene");
@@ -378,22 +384,27 @@ int main(int argc, char **argv)
     fetchRobot.screwWithTorso(1);
     fetchRobot.goToWaypointByCartesianPathsWithTorso(0.16);
 
+*/
+
+/*
     ros::Duration(3).sleep();
 
     test = fetchRobot.goToPoseGoalWithTorso(0.707, 0,-0.707, 0, QrcodePose.getOrigin().x()+0.100, QrcodePose.getOrigin().y()+0.182, QrcodePose.getOrigin().z()+0.166+0.302);
     grasp_pos.command.position = 0.1;
     grasp_pos.command.max_effort = 0.0;
     fetchRobot.gripper_action_client.sendGoal(grasp_pos);
+*/
 
 
-/*    ROS_INFO("Go to top of the tube");
-    fetchRobot.goToPoseGoalWithTorso(0.707, 0,-0.707, 0, 0.23, -0.057, 0.8);
+
+    ROS_INFO("Go to top of the tube");
+//    fetchRobot.goToPoseGoalWithTorso(0.707, 0,-0.707, 0, 0.23, -0.057, 0.8);
     fetchRobot.visualPlan();
 
     ROS_INFO("Down:");
-    fetchRobot.goToWaypointByCartesianPathsWithTorso(-0.15);
+//    fetchRobot.goToWaypointByCartesianPathsWithTorso(-0.15);
 
-*/
+
 
 
 /*
