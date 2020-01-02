@@ -16,6 +16,12 @@
 
 #include <tf/transform_listener.h>
 
+#include <ros/ros.h>
+#include <tf2_ros/transform_listener.h>
+#include <tf2/transform_datatypes.h>
+#include <geometry_msgs/TransformStamped.h>
+#include <geometry_msgs/Twist.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 
 #define PI 3.14159265
 
@@ -45,6 +51,8 @@ public:
         head_action_client.waitForServer();
         ROS_INFO("Head action server started, sending goal.");
         display_publisher = nh_.advertise<moveit_msgs::DisplayTrajectory>("/move_group/display_planned_path", 1, true);
+        base_cmd_publisher = nh_.advertise<geometry_msgs::Twist>("/cmd_vel", 1, true);
+        pub_aco = nh_.advertise<moveit_msgs::AttachedCollisionObject>("/attached_collision_object", 10, true);
 
         //创建运动规划的情景，等待创建完成
         sleep(5.0);
@@ -86,8 +94,8 @@ public:
         shape_msgs::SolidPrimitive primitive;
         primitive.type = primitive.BOX;
         primitive.dimensions.resize(3);
-        primitive.dimensions[0] = 0.5; // width
-        primitive.dimensions[1] = 1.5; // long
+        primitive.dimensions[0] = 0.65; // width
+        primitive.dimensions[1] = 1.65; // long
         primitive.dimensions[2] = 0.04; // height
         geometry_msgs::Pose pose;
         pose.orientation.w = 1.0;
@@ -118,7 +126,7 @@ public:
         screen.operation = screen.ADD;
         std::vector<moveit_msgs::CollisionObject> collision_objects;
         collision_objects.push_back(table);
-        collision_objects.push_back(screen);
+        //collision_objects.push_back(screen);
         current_scene.addCollisionObjects(collision_objects);
 
     }
@@ -129,6 +137,47 @@ public:
         current_scene.removeCollisionObjects(collision_objects_id);
     }
 
+void addTube2Gripper(){
+
+        moveit_msgs::CollisionObject tube;
+        tube.header.frame_id = "gripper_link";
+        tube.id = "tube";
+        tube.operation = moveit_msgs::CollisionObject::ADD;
+        shape_msgs::SolidPrimitive primitive;
+        primitive.type = primitive.BOX;
+        primitive.dimensions.resize(3);
+        primitive.dimensions[0] = 0.117; // width
+        primitive.dimensions[1] = 0.010; // long
+        primitive.dimensions[2] = 0.01; // height
+        geometry_msgs::Pose pose;
+        pose.orientation.w = 1.0;
+        pose.position.x =  0.05;
+        pose.position.y =  0;
+        pose.position.z = 0;
+        tube.primitives.push_back(primitive);
+        tube.primitive_poses.push_back(pose);
+        tube.operation = tube.ADD;
+
+
+        tube.primitives.push_back(primitive);
+        tube.primitive_poses.push_back(pose);
+        moveit_msgs::AttachedCollisionObject attached_collision_objects;
+        attached_collision_objects.object = tube;
+        attached_collision_objects.link_name = "gripper_link";
+pub_aco.publish(attached_collision_objects);
+}
+
+void removeTube2Gripper(){
+
+        moveit_msgs::CollisionObject tube;
+tube.id="tube";
+tube.operation = moveit_msgs::CollisionObject::REMOVE;
+pub_aco.publish(tube);
+
+     //   std::vector<std::string> collision_objects_id;
+      //  collision_objects_id.push_back("tube");
+       // current_scene.removeCollisionObjects(collision_objects_id);
+}
     bool goToPoseGoalWithTorso(double ox, double oy, double oz, double ow, double x, double y, double z)
     // ox=0.013, oy=0.713, oz=0, ow=0.701, x=0.229, y=-0.063, z=0.672
     {
@@ -317,7 +366,7 @@ public:
                     if (head_action_client.getState() == actionlib::SimpleClientGoalState::SUCCEEDED)
                         printf("Yay! The head is reached now");
                 }
-                ros::Duration(2.0).sleep();
+                ros::Duration(3.0).sleep();
             }
             if (transform.getOrigin().x()!=100)
             {
@@ -326,6 +375,46 @@ public:
         }
     }
 
+    void adjustBodyYaw(){
+double roll;
+		double pitch;
+		double yaw;
+tf2::Matrix3x3 tmp_m;
+geometry_msgs::Twist vel_msg;
+tf2::Quaternion goal_quat(0, 0, 1, 0);
+tf2::Quaternion current_quat;
+geometry_msgs::TransformStamped transformStamped;
+tf2_ros::Buffer tfBuffer(ros::Duration(1));
+tf2_ros::TransformListener tfListener(tfBuffer);
+        while (nh_.ok()) {
+try{
+transformStamped = tfBuffer.lookupTransform("base_link","tag_1",ros::Time::now(), ros::Duration(0.3));
+
+tf2::convert(transformStamped.transform.rotation, current_quat);
+
+tf2::Matrix3x3 current_m(current_quat);
+tf2::Matrix3x3 goal_m(goal_quat);
+tmp_m = goal_m*current_m.inverse();
+tmp_m.getRPY(roll,pitch,yaw);
+vel_msg.angular.z = -1.2 * yaw;
+ROS_INFO("yaw:%f",yaw);
+vel_msg.linear.x = 0;
+vel_msg.linear.y = 0;
+if(fabs(yaw) <0.1){
+return;
+}
+else{
+base_cmd_publisher.publish(vel_msg);
+}
+}
+catch (tf2::TransformException &ex) {
+					ROS_WARN("%s",ex.what());
+					ros::Duration(1.0).sleep();
+					continue;
+				}
+ros::Duration(3.0).sleep();
+}
+}
 
 
 private:
@@ -336,7 +425,10 @@ private:
     moveit::planning_interface::PlanningSceneInterface current_scene;
     moveit::planning_interface::MoveGroup::Plan my_plan;
 
+
     ros::Publisher display_publisher;
+    ros::Publisher base_cmd_publisher;
+    ros::Publisher pub_aco;
 
     bool moveRealRobot;
 };
@@ -354,56 +446,66 @@ int main(int argc, char **argv)
     grasp_pos.command.max_effort = 0.0;
     fetchRobot.gripper_action_client.sendGoal(grasp_pos);
 
-    tf::StampedTransform QrcodePose = fetchRobot.findAndGetQRcodePose();
 
 
-/*
+    tf::StampedTransform QrcodePose;
+QrcodePose = fetchRobot.findAndGetQRcodePose();
+
+fetchRobot.adjustBodyYaw();
+
+    ros::Duration(3).sleep();
+    QrcodePose = fetchRobot.findAndGetQRcodePose();
+
+
+
 
 //    ROS_INFO("Add fixture to scene");
 //    fetchRobot.addFixtureToScene(0.23, 0, 0.44);
     ROS_INFO("Add table to scene");
-    fetchRobot.addTableToScene();
+//    fetchRobot.addTableToScene();
 
     //Translation: [0.287, -0.143, 0.043]
     ROS_INFO("Go to top of the tube");
     ROS_INFO_STREAM("x:"<<QrcodePose.getOrigin().x()<<" y:"<<QrcodePose.getOrigin().y()<<" z:"<<QrcodePose.getOrigin().z());
 
     // z: 0.166 is the tf from wrist_roll_link to gripper_link
-    bool test = fetchRobot.goToPoseGoalWithTorso(0.707, 0,-0.707, 0, QrcodePose.getOrigin().x()-0.060, QrcodePose.getOrigin().y()+0.142, QrcodePose.getOrigin().z()+0.166+0.302);
+    bool test = fetchRobot.goToPoseGoalWithTorso(0.707, 0,-0.707, 0, QrcodePose.getOrigin().x()-0.043, QrcodePose.getOrigin().y()+0.135, QrcodePose.getOrigin().z()+0.166+0.252);
     ROS_INFO_STREAM("test:"<<test);
 //    fetchRobot.visualPlan();
     ros::Duration(3).sleep();
 
+
     ROS_INFO("Down:");
 //    fetchRobot.goToPoseGoalWithoutTorso(0.707, 0,-0.707, 0, 0.23, -0.057, 0.87);
-    fetchRobot.goToWaypointByCartesianPathsWithTorso(-0.16);
+    fetchRobot.goToWaypointByCartesianPathsWithTorso(-0.11);
 
     grasp_pos.command.position = 0.03;
     grasp_pos.command.max_effort = 0.0;
     fetchRobot.gripper_action_client.sendGoal(grasp_pos);
-    fetchRobot.screwWithTorso(1);
-    fetchRobot.goToWaypointByCartesianPathsWithTorso(0.16);
+ //   fetchRobot.screwWithTorso(1);
+    fetchRobot.goToWaypointByCartesianPathsWithTorso(0.11);
 
-*/
+    ROS_INFO("Add tube to scene");
+fetchRobot.addTube2Gripper();
+    ROS_INFO("done : tube to scene");
 
 /*
-    ros::Duration(3).sleep();
-
-    test = fetchRobot.goToPoseGoalWithTorso(0.707, 0,-0.707, 0, QrcodePose.getOrigin().x()+0.100, QrcodePose.getOrigin().y()+0.182, QrcodePose.getOrigin().z()+0.166+0.302);
-    grasp_pos.command.position = 0.1;
-    grasp_pos.command.max_effort = 0.0;
-    fetchRobot.gripper_action_client.sendGoal(grasp_pos);
 */
 
 
 
-    ROS_INFO("Go to top of the tube");
-//    fetchRobot.goToPoseGoalWithTorso(0.707, 0,-0.707, 0, 0.23, -0.057, 0.8);
+
+
+    ROS_INFO("Go to top of the fixture");
+    fetchRobot.goToPoseGoalWithTorso(0.707, 0,-0.707, 0, 0.23, -0.057, 0.9);
     fetchRobot.visualPlan();
 
     ROS_INFO("Down:");
-//    fetchRobot.goToWaypointByCartesianPathsWithTorso(-0.15);
-
+    fetchRobot.goToWaypointByCartesianPathsWithTorso(-0.10);
+fetchRobot.removeTube2Gripper();
+    ros::Duration(3).sleep();
+/*
+*/
 
 
 
@@ -461,6 +563,7 @@ int main(int argc, char **argv)
     ros::Duration(3).sleep();
 
 */
+
 
 
     ros::shutdown();
