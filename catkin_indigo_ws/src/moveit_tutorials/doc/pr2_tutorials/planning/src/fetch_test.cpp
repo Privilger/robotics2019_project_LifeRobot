@@ -53,10 +53,32 @@ public:
         display_publisher = nh_.advertise<moveit_msgs::DisplayTrajectory>("/move_group/display_planned_path", 1, true);
         base_cmd_publisher = nh_.advertise<geometry_msgs::Twist>("/cmd_vel", 1, true);
         pub_aco = nh_.advertise<moveit_msgs::AttachedCollisionObject>("/attached_collision_object", 10, true);
+        small_grasp = nh_.advertise<std_msgs::Empty>("/toggle_led", 10, true);
+
+	nh_.param<double>("/fetch_test/tube_x", tube_x, 100);
+	nh_.param<double>("/fetch_test/tube_y", tube_y, 100);
+	nh_.param<double>("/fetch_test/tube_z", tube_z, 100);
+
+//    ROS_INFO_STREAM("x:"<<tube_x<<" y:"<<tube_y<<" z:"<<tube_z);
+//group_arm.setPlannerId("RRTkConfigDefault");
+//group_arm_with_torso.setPlannerId("RRTkConfigDefault");
+group_arm.setPlannerId("RRTConnectkConfigDefault");
+group_arm_with_torso.setPlannerId("RRTConnectkConfigDefault");
+//group_arm.setPlannerId("PRMkConfigDefault");
+//group_arm_with_torso.setPlannerId("PRMkConfigDefault");
+//group_arm.setPlanningTime(30);
+//group_arm_with_torso.setPlanningTime(30);
+//group_arm.setGoalPositionTolerance(0.1);
+//group_arm_with_torso.setGoalPositionTolerance(0.1);
 
         //创建运动规划的情景，等待创建完成
         sleep(5.0);
     }
+
+void trigger_grasp(){
+std_msgs::Empty test;
+small_grasp.publish(test);
+}
 
     void addFixtureToScene(double x, double y, double z)
     // x=0.23, y=0, z=0.44
@@ -67,9 +89,12 @@ public:
         shape_msgs::SolidPrimitive primitive;
         primitive.type = primitive.BOX;
         primitive.dimensions.resize(3);
+        //primitive.dimensions[0] = 0.1; // width
+        //primitive.dimensions[1] = 0.15; // long
+        //primitive.dimensions[2] = 0.15; // height
         primitive.dimensions[0] = 0.1; // width
         primitive.dimensions[1] = 0.15; // long
-        primitive.dimensions[2] = 0.15; // height
+        primitive.dimensions[2] = 0.10; // height
         geometry_msgs::Pose pose;
         pose.orientation.w = 1.0;
         pose.position.x =  x;
@@ -94,12 +119,12 @@ public:
         shape_msgs::SolidPrimitive primitive;
         primitive.type = primitive.BOX;
         primitive.dimensions.resize(3);
-        primitive.dimensions[0] = 0.65; // width
-        primitive.dimensions[1] = 1.65; // long
+        primitive.dimensions[0] = 0.60; // width
+        primitive.dimensions[1] = 1.60; // long
         primitive.dimensions[2] = 0.04; // height
         geometry_msgs::Pose pose;
         pose.orientation.w = 1.0;
-        pose.position.x =  -0.15;
+        pose.position.x =  -0.18;
         pose.position.y =  0.38;
         pose.position.z =  -0.02;
         table.primitives.push_back(primitive);
@@ -134,6 +159,13 @@ public:
     {
         std::vector<std::string> collision_objects_id;
         collision_objects_id.push_back("fixture");
+        current_scene.removeCollisionObjects(collision_objects_id);
+    }
+
+    void removeTableToScene()
+    {
+        std::vector<std::string> collision_objects_id;
+        collision_objects_id.push_back("table");
         current_scene.removeCollisionObjects(collision_objects_id);
     }
 
@@ -375,47 +407,109 @@ pub_aco.publish(tube);
         }
     }
 
-    void adjustBodyYaw(){
-double roll;
-		double pitch;
-		double yaw;
-tf2::Matrix3x3 tmp_m;
-geometry_msgs::Twist vel_msg;
-tf2::Quaternion goal_quat(0, 0, 1, 0);
-tf2::Quaternion current_quat;
-geometry_msgs::TransformStamped transformStamped;
-tf2_ros::Buffer tfBuffer(ros::Duration(1));
-tf2_ros::TransformListener tfListener(tfBuffer);
-        while (nh_.ok()) {
-try{
-transformStamped = tfBuffer.lookupTransform("base_link","tag_1",ros::Time::now(), ros::Duration(0.3));
+void adjustBodyYaw(){
+	double roll;
+	double pitch;
+	double yaw;
+	tf2::Matrix3x3 tmp_m;
+	geometry_msgs::Twist vel_msg;
+	tf2::Quaternion goal_quat(0, 0, 1, 0);
+	tf2::Quaternion current_quat;
+	geometry_msgs::TransformStamped transformStamped;
+	tf2_ros::Buffer tfBuffer(ros::Duration(1));
+	tf2_ros::TransformListener tfListener(tfBuffer);
+	while (nh_.ok()) {
+		try{
+			transformStamped = tfBuffer.lookupTransform("base_link","tag_1",ros::Time::now(), ros::Duration(0.3));
 
-tf2::convert(transformStamped.transform.rotation, current_quat);
+			tf2::convert(transformStamped.transform.rotation, current_quat);
 
-tf2::Matrix3x3 current_m(current_quat);
-tf2::Matrix3x3 goal_m(goal_quat);
-tmp_m = goal_m*current_m.inverse();
-tmp_m.getRPY(roll,pitch,yaw);
-vel_msg.angular.z = -1.2 * yaw;
-ROS_INFO("yaw:%f",yaw);
-vel_msg.linear.x = 0;
-vel_msg.linear.y = 0;
-if(fabs(yaw) <0.1){
-return;
-}
-else{
-base_cmd_publisher.publish(vel_msg);
-}
-}
-catch (tf2::TransformException &ex) {
-					ROS_WARN("%s",ex.what());
-					ros::Duration(1.0).sleep();
-					continue;
+			tf2::Matrix3x3 current_m(current_quat);
+			tf2::Matrix3x3 goal_m(goal_quat);
+			tmp_m = goal_m*current_m.inverse();
+			tmp_m.getRPY(roll,pitch,yaw);
+			vel_msg.angular.z = -1.2 * yaw;
+			ROS_INFO("yaw:%f",yaw);
+			vel_msg.linear.x = 0;
+			vel_msg.linear.y = 0;
+			if(fabs(yaw) <0.1){
+
+
+				if (fabs(transformStamped.transform.translation.x - 0.7)>0.05){
+					vel_msg.linear.x = 1 * (transformStamped.transform.translation.x - 0.7);
+					vel_msg.linear.y = 0;
+					vel_msg.angular.z = 0;
+					base_cmd_publisher.publish(vel_msg);
 				}
-ros::Duration(3.0).sleep();
-}
+
+
+				return;
+			}
+			else{
+				base_cmd_publisher.publish(vel_msg);
+			}
+		}
+		catch (tf2::TransformException &ex) {
+			ROS_WARN("%s",ex.what());
+			ros::Duration(1.0).sleep();
+			continue;
+		}
+		ros::Duration(3.0).sleep();
+	}
 }
 
+void moveBodyBack(){
+	geometry_msgs::Twist vel_msg;
+	geometry_msgs::TransformStamped transformStamped;
+	tf2_ros::Buffer tfBuffer(ros::Duration(1));
+	tf2_ros::TransformListener tfListener(tfBuffer);
+	while (nh_.ok()) {
+		try{
+			transformStamped = tfBuffer.lookupTransform("base_link","tag_1",ros::Time::now(), ros::Duration(0.3));
+
+			if (fabs(transformStamped.transform.translation.x - 0.9)>0.05){
+				vel_msg.linear.x = 1 * (transformStamped.transform.translation.x - 0.9);
+				vel_msg.linear.y = 0;
+				vel_msg.angular.z = 0;
+				base_cmd_publisher.publish(vel_msg);
+			}
+			else{return;}
+
+		}
+		catch (tf2::TransformException &ex) {
+			ROS_WARN("%s",ex.what());
+			ros::Duration(1.0).sleep();
+			continue;
+		}
+		ros::Duration(3.0).sleep();
+	}
+}
+void moveBodyFront(double dist){
+	geometry_msgs::Twist vel_msg;
+	geometry_msgs::TransformStamped transformStamped;
+	tf2_ros::Buffer tfBuffer(ros::Duration(1));
+	tf2_ros::TransformListener tfListener(tfBuffer);
+	while (nh_.ok()) {
+		try{
+			transformStamped = tfBuffer.lookupTransform("base_link","tag_1",ros::Time::now(), ros::Duration(0.3));
+
+			if (fabs(transformStamped.transform.translation.x - 0.7)>0.05){
+				vel_msg.linear.x = 1 * (transformStamped.transform.translation.x - 0.7);
+				vel_msg.linear.y = 0;
+				vel_msg.angular.z = 0;
+				base_cmd_publisher.publish(vel_msg);
+			}
+			else{return;}
+
+		}
+		catch (tf2::TransformException &ex) {
+			ROS_WARN("%s",ex.what());
+			ros::Duration(1.0).sleep();
+			continue;
+		}
+		ros::Duration(3.0).sleep();
+	}
+}
 
 private:
     ros::NodeHandle nh_;
@@ -429,8 +523,14 @@ private:
     ros::Publisher display_publisher;
     ros::Publisher base_cmd_publisher;
     ros::Publisher pub_aco;
+    ros::Publisher small_grasp;
 
     bool moveRealRobot;
+
+public:
+    double tube_x;
+    double tube_y;
+    double tube_z;
 };
 
 int main(int argc, char **argv)
@@ -440,6 +540,9 @@ int main(int argc, char **argv)
     ros::AsyncSpinner spinner(1);
     spinner.start();
     FetchRobot fetchRobot(node_handle);
+/*
+*/
+fetchRobot.trigger_grasp();
     ROS_INFO("Open Gripper");
     control_msgs::GripperCommandGoal grasp_pos;
     grasp_pos.command.position = 0.1;
@@ -459,111 +562,120 @@ fetchRobot.adjustBodyYaw();
 
 
 
-//    ROS_INFO("Add fixture to scene");
-//    fetchRobot.addFixtureToScene(0.23, 0, 0.44);
+    ROS_INFO("Add fixture to scene");
+    fetchRobot.addFixtureToScene(0.23, 0, 0.38);
     ROS_INFO("Add table to scene");
-//    fetchRobot.addTableToScene();
+    fetchRobot.addTableToScene();
 
     //Translation: [0.287, -0.143, 0.043]
     ROS_INFO("Go to top of the tube");
     ROS_INFO_STREAM("x:"<<QrcodePose.getOrigin().x()<<" y:"<<QrcodePose.getOrigin().y()<<" z:"<<QrcodePose.getOrigin().z());
 
     // z: 0.166 is the tf from wrist_roll_link to gripper_link
-    bool test = fetchRobot.goToPoseGoalWithTorso(0.707, 0,-0.707, 0, QrcodePose.getOrigin().x()-0.043, QrcodePose.getOrigin().y()+0.135, QrcodePose.getOrigin().z()+0.166+0.252);
+    bool test = fetchRobot.goToPoseGoalWithoutTorso(0.707, 0,-0.707, 0, QrcodePose.getOrigin().x()+fetchRobot.tube_x, QrcodePose.getOrigin().y()+fetchRobot.tube_y, QrcodePose.getOrigin().z()+0.166+fetchRobot.tube_z);
     ROS_INFO_STREAM("test:"<<test);
+    ROS_INFO_STREAM("x:"<<fetchRobot.tube_x<<" y:"<<fetchRobot.tube_y<<" z:"<<fetchRobot.tube_z);
 //    fetchRobot.visualPlan();
     ros::Duration(3).sleep();
 
 
     ROS_INFO("Down:");
-//    fetchRobot.goToPoseGoalWithoutTorso(0.707, 0,-0.707, 0, 0.23, -0.057, 0.87);
     fetchRobot.goToWaypointByCartesianPathsWithTorso(-0.11);
 
     grasp_pos.command.position = 0.03;
     grasp_pos.command.max_effort = 0.0;
     fetchRobot.gripper_action_client.sendGoal(grasp_pos);
  //   fetchRobot.screwWithTorso(1);
-    fetchRobot.goToWaypointByCartesianPathsWithTorso(0.11);
+ //   fetchRobot.addOrientationConstrain();
+    fetchRobot.goToWaypointByCartesianPathsWithTorso(0.18);
 
     ROS_INFO("Add tube to scene");
 fetchRobot.addTube2Gripper();
     ROS_INFO("done : tube to scene");
 
-/*
-*/
 
 
 
 
+//    fetchRobot.addOrientationConstrain();
 
     ROS_INFO("Go to top of the fixture");
-    fetchRobot.goToPoseGoalWithTorso(0.707, 0,-0.707, 0, 0.23, -0.057, 0.9);
-    fetchRobot.visualPlan();
-
-    ROS_INFO("Down:");
-    fetchRobot.goToWaypointByCartesianPathsWithTorso(-0.10);
-fetchRobot.removeTube2Gripper();
-    ros::Duration(3).sleep();
-/*
-*/
-
-
-
-/*
-    fetchRobot.test();
-
-
-    ros::Duration(10).sleep();
-
-
-    ROS_INFO("Go to top of the tube");
+    //fetchRobot.goToPoseGoalWithTorso(0.707, 0,-0.707, 0, 0.23, -0.057, 0.9);
+    //fetchRobot.goToPoseGoalWithoutTorso(0.707, 0,-0.707, 0, 0.23, -0.057, 0.9);
     fetchRobot.goToPoseGoalWithTorso(0.707, 0,-0.707, 0, 0.23, -0.057, 0.8);
+    fetchRobot.goToPoseGoalWithoutTorso(0.707, 0,-0.707, 0, 0.23, -0.057, 0.8);
+    fetchRobot.goToPoseGoalWithTorso(0.707, 0,-0.707, 0, 0.23, -0.057, 0.9);
+    fetchRobot.goToPoseGoalWithoutTorso(0.707, 0,-0.707, 0, 0.23, -0.057, 0.9);
+//    fetchRobot.goToPoseGoalWithTorso(0.707, 0,-0.707, 0, 0.23, -0.057, 1);
+//    fetchRobot.goToPoseGoalWithoutTorso(0.707, 0,-0.707, 0, 0.23, -0.057, 1);
+//    fetchRobot.visualPlan();
 
+    fetchRobot.removeFixtureToScene();
+    ROS_INFO("Down:");
+    fetchRobot.goToWaypointByCartesianPathsWithTorso(-0.15);
+    fetchRobot.removeTube2Gripper();
+    ros::Duration(3).sleep();
+
+    grasp_pos.command.position = 0.1;
+    grasp_pos.command.max_effort = 0.0;
+    fetchRobot.gripper_action_client.sendGoal(grasp_pos);
+
+fetchRobot.trigger_grasp();
+    ros::Duration(5).sleep();
+
+
+fetchRobot.trigger_grasp();
+fetchRobot.removeTableToScene();
+
+    grasp_pos.command.position = 0.03;
+    grasp_pos.command.max_effort = 0.0;
+    fetchRobot.gripper_action_client.sendGoal(grasp_pos);
+
+    fetchRobot.goToWaypointByCartesianPathsWithTorso(0.20);
+
+
+
+QrcodePose = fetchRobot.findAndGetQRcodePose();
+
+fetchRobot.adjustBodyYaw();
+
+    ros::Duration(3).sleep();
+    QrcodePose = fetchRobot.findAndGetQRcodePose();
+
+    ROS_INFO("Add fixture to scene");
+    fetchRobot.addFixtureToScene(0.23, 0, 0.38);
+    ROS_INFO("Add table to scene");
+    fetchRobot.addTableToScene();
+
+    //Translation: [0.287, -0.143, 0.043]
+    ROS_INFO("Go to top of the tube");
+    ROS_INFO_STREAM("x:"<<QrcodePose.getOrigin().x()<<" y:"<<QrcodePose.getOrigin().y()<<" z:"<<QrcodePose.getOrigin().z());
+
+    // z: 0.166 is the tf from wrist_roll_link to gripper_link
+    test = fetchRobot.goToPoseGoalWithoutTorso(0.707, 0,-0.707, 0, QrcodePose.getOrigin().x()+fetchRobot.tube_x, QrcodePose.getOrigin().y()+fetchRobot.tube_y, QrcodePose.getOrigin().z()+0.166+fetchRobot.tube_z);
+    ROS_INFO_STREAM("test:"<<test);
+    ROS_INFO_STREAM("x:"<<fetchRobot.tube_x<<" y:"<<fetchRobot.tube_y<<" z:"<<fetchRobot.tube_z);
 //    fetchRobot.visualPlan();
     ros::Duration(3).sleep();
-    ROS_INFO("Remove fixture to scene");
-    fetchRobot.removeFixtureToScene();
-    ROS_INFO("ADD CONSTRAIN:");
-    fetchRobot.addOrientationConstrain();
+
 
     ROS_INFO("Down:");
-//    fetchRobot.goToPoseGoalWithoutTorso(0.707, 0,-0.707, 0, 0.23, -0.057, 0.87);
-    fetchRobot.goToWaypointByCartesianPathsWithTorso(-0.15);
-
-// Grasp
-//    ROS_INFO("Close gripper:");
-//    grasp_pos.command.position = 0.03;
-//    grasp_pos.command.max_effort = 0.0;
-//    fetchRobot.gripper_action_client.sendGoal(grasp_pos);
-
-
+    fetchRobot.goToWaypointByCartesianPathsWithTorso(-0.12);
+    grasp_pos.command.position = 0.1;
+    grasp_pos.command.max_effort = 0.0;
+    fetchRobot.gripper_action_client.sendGoal(grasp_pos);
     ros::Duration(3).sleep();
-//    ROS_INFO("Screw:");
-//    fetchRobot.screw();
-//    fetchRobot.screwWithTorso();
-    ROS_INFO("Up:");
-//    fetchRobot.goToPoseGoalWithTorso(0.707, 0,-0.707, 0, 0.23, -0.057, 0.9);
-    fetchRobot.goToWaypointByCartesianPathsWithTorso(0.15);
-    ros::Duration(3).sleep();
+    grasp_pos.command.position = 0.03;
+    grasp_pos.command.max_effort = 0.0;
+    fetchRobot.gripper_action_client.sendGoal(grasp_pos);
+    fetchRobot.screwWithTorso(1);
+    fetchRobot.goToWaypointByCartesianPathsWithTorso(0.18);
+    test = fetchRobot.goToPoseGoalWithoutTorso(0.707, 0,-0.707, 0, QrcodePose.getOrigin().x()+fetchRobot.tube_x+0.15, QrcodePose.getOrigin().y()+fetchRobot.tube_y+0.05, QrcodePose.getOrigin().z()+0.166+fetchRobot.tube_z);
 
-
-// Move head
-//    control_msgs::PointHeadGoal headGoal;
-//    headGoal.target.header.stamp = ros::Time::now();
-//    headGoal.target.header.frame_id = "base_link";
-//    headGoal.target.point.x = 1;
-//    headGoal.target.point.y = 1;
-//    headGoal.target.point.z = 0.5;
-//    fetchRobot.head_action_client.sendGoal(headGoal);
-
-
-//    grasp_pos.command.position = 0.1;
-//    grasp_pos.command.max_effort = 0.0;
-//    fetchRobot.gripper_action_client.sendGoal(grasp_pos);
-    ros::Duration(3).sleep();
-
-*/
-
+    grasp_pos.command.position = 0.1;
+    grasp_pos.command.max_effort = 0.0;
+    fetchRobot.gripper_action_client.sendGoal(grasp_pos);
+ //   fetchRobot.addOrientationConstrain();
 
 
     ros::shutdown();
