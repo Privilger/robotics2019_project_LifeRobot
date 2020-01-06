@@ -443,7 +443,7 @@ class FetchRobot
 					if(fabs(yaw) <0.1){
 
 
-						if (fabs(transformStamped.transform.translation.x - 0.7)>0.05){
+						if (fabs(transformStamped.transform.translation.x - 0.667)>0.02){
 							vel_msg.linear.x = 1 * (transformStamped.transform.translation.x - 0.7);
 							vel_msg.linear.y = 0;
 							vel_msg.angular.z = 0;
@@ -646,6 +646,7 @@ int main(int argc, char **argv)
 
 	fetchRobot.goToWaypointByCartesianPathsWithTorso(0.20);
 
+	fetchRobot.trigger_grasp();
 
 
 	QrcodePose = fetchRobot.findAndGetQRcodePose();
