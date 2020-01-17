@@ -42,7 +42,7 @@ Fig.2: Fetch robot with the fixture and centrifuge tubes with screw lids.
 
 ![Fixture](doc/image/fixture.png)
 
-Fig.3: The fixture of the centrifuge tube contains two parts, a clamping part, and a fixed part. The gripper is controlled by the servo using ardunio.
+Fig.3: The fixture of the centrifuge tube contains two parts, a gripper, and a connection part. The gripper is controlled by the servo using ardunio.
 
 Simulator
 
