@@ -38,13 +38,17 @@ Hardware
 
 ![Fetch with fixture](doc/image/fetch_with_fixture_and_tube.png)
 
-Fig.2: Fetch robot with the fixture and centrifuge tubes with screw lids. The fixture of the centrifuge tube contains two parts, a clamping part, and a fixed part. The gripper is controlled by the servo using ardunio.
+Fig.2: Fetch robot with the fixture and centrifuge tubes with screw lids. 
+
+![Fixture](doc/image/fixture.png)
+
+Fig.3: The fixture of the centrifuge tube contains two parts, a clamping part, and a fixed part. The gripper is controlled by the servo using ardunio.
 
 Simulator
 
 ![Fetch in Rviz](doc/image/apriltag-usage.png)
 
-Fig.3: Fetch robot in Rviz. We add the table as the collision.
+Fig.4: Fetch robot in Rviz. We add the table as the collision.
 
 Video Demo of the Experiment
 
