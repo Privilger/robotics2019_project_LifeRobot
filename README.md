@@ -16,17 +16,35 @@ In the field of robotics, service robots are increasingly becoming an industry h
 
 System Description
 
+The system contains 6 components:
+
+* MoveIt framework that is used to control the manipulator to grasp the object.
+
+* Cartographer algorithm to build a map.
+
+* Move base ros package that is used to navigate the robot to the target place where the object should be grasped.
+
+* AprilTag 3 visual fiducial detection algorithm is used to obtain the object pose.
+
+* We will design a device that can clamp for test tubes on the robot.
+
+* Rosserial package is used to communicated between arduino and the robot.
+
 Hardware
 
-![Fetch with fixture](doc/image/hardware.JPG)
+![Fetch with fixture](doc/image/Fetch_with_fixture_and_tube.png)
+
+Fig.1: Fetch robot with the fixture and centrifuge tubes with screw lids. The fixture of the centrifuge tube contains two parts, a clamping part, and a fixed part. The gripper is controlled by the servo using ardunio.
 
 Simulator
 
 ![Fetch in Rviz](doc/image/apriltag-usage.png)
 
+Fig.2: Fetch robot in Rviz. We add the table as the collision.
+
 The Demo of Experiments
 
-[Demo](https://youtu.be/GrqMmCn_Z8M)
+![Demo](https://youtu.be/GrqMmCn_Z8M)
 
 How to Reproduce the Project:
 
