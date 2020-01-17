@@ -46,7 +46,7 @@ Simulator
 
 Fig.3: Fetch robot in Rviz. We add the table as the collision.
 
-The Demo of Experiments
+Video Demo of the Experiment
 
 ![Demo](https://youtu.be/GrqMmCn_Z8M)
 
