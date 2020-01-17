@@ -4,7 +4,7 @@ Members: <br>
 Yizheng Zhang: zhangyzh1@shanghaitech.edu.cn   ID: 2018233135 <br>
 Jiahui  Zhu: zhujh1@shanghaitech.edu.cn      ID: 2018233141 <br>
 
-Tile
+Title
 
 Life-science Fetch Robot for Dexterous Manipulation of Centrifuge Tubes
 
@@ -20,13 +20,9 @@ Fig.1: A mobile manipulation Fetch robot in the life science laboratory.
 
 System Description
 
-The system contains 6 components:
+The system contains 4 components:
 
 * MoveIt framework that is used to control the manipulator to grasp the object.
-
-* Cartographer algorithm to build a map.
-
-* Move base ros package that is used to navigate the robot to the target place where the object should be grasped.
 
 * AprilTag 3 visual fiducial detection algorithm is used to obtain the object pose.
 
