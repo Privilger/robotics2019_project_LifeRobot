@@ -28,11 +28,11 @@ The system contains 6 components:
 
 * We will design a device that can clamp for test tubes on the robot.
 
-* Rosserial package is used to communicated between arduino and the robot.
+* Rosserial package is used to communicate between arduino and the robot.
 
 Hardware
 
-![Fetch with fixture](doc/image/Fetch_with_fixture_and_tube.png)
+![Fetch with fixture](doc/image/fetch_with_fixture_and_tube.png)
 
 Fig.1: Fetch robot with the fixture and centrifuge tubes with screw lids. The fixture of the centrifuge tube contains two parts, a clamping part, and a fixed part. The gripper is controlled by the servo using ardunio.
 
